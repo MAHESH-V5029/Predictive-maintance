@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+.vscode/
+# Trained models are rebuilt with `python -m src.train` (about 1-2 minutes)
+models/*.joblib

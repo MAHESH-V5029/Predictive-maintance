@@ -1,0 +1,101 @@
+{
+  "selected_model": "Random Forest",
+  "dataset": {
+    "rows": 40507,
+    "machines": 150,
+    "failure_soon_rate": 0.11109191004023995,
+    "horizon_steps": 30,
+    "seed": 42
+  },
+  "classification": {
+    "Logistic Regression": {
+      "validation": {
+        "accuracy": 0.8927303596233986,
+        "precision": 0.4864235841737781,
+        "recall": 0.95,
+        "f1": 0.6434068753206773,
+        "roc_auc": 0.975562551099585,
+        "confusion_matrix": {
+          "tn": 5157,
+          "fp": 662,
+          "fn": 33,
+          "tp": 627
+        }
+      },
+      "test": {
+        "accuracy": 0.9014958625079568,
+        "precision": 0.5272030651340996,
+        "recall": 0.9971014492753624,
+        "f1": 0.6897243107769424,
+        "roc_auc": 0.9879021518915194,
+        "confusion_matrix": {
+          "tn": 4977,
+          "fp": 617,
+          "fn": 2,
+          "tp": 688
+        }
+      }
+    },
+    "Random Forest": {
+      "validation": {
+        "accuracy": 0.9050779441271801,
+        "precision": 0.519280205655527,
+        "recall": 0.9181818181818182,
+        "f1": 0.6633825944170771,
+        "roc_auc": 0.9687687148161457,
+        "confusion_matrix": {
+          "tn": 5258,
+          "fp": 561,
+          "fn": 54,
+          "tp": 606
+        }
+      },
+      "test": {
+        "accuracy": 0.9258434118395926,
+        "precision": 0.6005385996409336,
+        "recall": 0.9695652173913043,
+        "f1": 0.7416851441241685,
+        "roc_auc": 0.9824858932707404,
+        "confusion_matrix": {
+          "tn": 5149,
+          "fp": 445,
+          "fn": 21,
+          "tp": 669
+        }
+      }
+    },
+    "Gradient Boosting": {
+      "validation": {
+        "accuracy": 0.9070844266090446,
+        "precision": 0.5259391771019678,
+        "recall": 0.8909090909090909,
+        "f1": 0.6614173228346457,
+        "roc_auc": 0.966767433746296,
+        "confusion_matrix": {
+          "tn": 5289,
+          "fp": 530,
+          "fn": 72,
+          "tp": 588
+        }
+      },
+      "test": {
+        "accuracy": 0.9290260980267345,
+        "precision": 0.6164122137404581,
+        "recall": 0.936231884057971,
+        "f1": 0.7433831990794016,
+        "roc_auc": 0.9830807334981062,
+        "confusion_matrix": {
+          "tn": 5192,
+          "fp": 402,
+          "fn": 44,
+          "tp": 646
+        }
+      }
+    }
+  },
+  "rul": {
+    "rmse": 18.034975476332647,
+    "mae": 13.123801037659076,
+    "rmse_near_failure": 11.759750525966615
+  }
+}

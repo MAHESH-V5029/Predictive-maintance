@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Predictive Maintenance Dashboard</title>
+<style>
+  :root { --bg:#f4f6f9; --card:#fff; --ink:#1d2733; --muted:#6b7785; --line:#e1e6ec;
+          --ok:#1e9e5a; --warn:#e69a00; --crit:#d6342c; --fail:#555; --accent:#1f4e79; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--accent); color:#fff; padding:14px 22px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+  header h1 { font-size:18px; margin:0; font-weight:600; }
+  .controls { display:flex; gap:8px; align-items:center; font-size:14px; }
+  button, select { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid #fff4; background:#ffffff22; color:#fff; cursor:pointer; }
+  select option { color:#000; }
+  main { padding:18px 22px; display:grid; gap:18px; grid-template-columns:1fr; max-width:1300px; margin:auto; }
+  .summary { display:flex; flex-wrap:wrap; gap:10px; font-size:14px; color:var(--muted); }
+  .pill { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:4px 12px; }
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; border-top:5px solid var(--ok); }
+  .card.Warning { border-top-color:var(--warn); } .card.Critical { border-top-color:var(--crit); } .card.Failed { border-top-color:var(--fail); opacity:.85; }
+  .row { display:flex; justify-content:space-between; align-items:center; }
+  .name { font-weight:600; }
+  .badge { font-size:12px; font-weight:700; color:#fff; padding:2px 10px; border-radius:12px; background:var(--ok); }
+  .Warning .badge { background:var(--warn); } .Critical .badge { background:var(--crit); } .Failed .badge { background:var(--fail); }
+  .bar { height:8px; background:var(--line); border-radius:4px; margin:10px 0 4px; overflow:hidden; }
+  .bar > div { height:100%; background:var(--ok); transition:width .4s; }
+  .Warning .bar > div { background:var(--warn); } .Critical .bar > div, .Failed .bar > div { background:var(--crit); }
+  .meta { font-size:13px; color:var(--muted); display:flex; justify-content:space-between; }
+  .sensors { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:10px 0; font-size:12px; }
+  .sensors span { background:var(--bg); border-radius:6px; padding:4px 6px; display:block; }
+  .sensors b { display:block; font-size:13px; color:var(--ink); }
+  canvas { width:100%; height:56px; display:block; }
+  .legend { font-size:11px; color:var(--muted); display:flex; gap:12px; }
+  h2 { font-size:15px; margin:0 0 8px; }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  ul { list-style:none; margin:0; padding:0; font-size:13px; max-height:220px; overflow:auto; }
+  li { padding:6px 0; border-bottom:1px solid var(--line); }
+  li .t { color:var(--muted); margin-right:8px; }
+  li.critical, li.failure { color:var(--crit); } li.warning { color:#b57800; } li.info { color:var(--muted); }
+  .note { font-size:12px; color:var(--muted); margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Predictive Maintenance Dashboard</h1>
+  <div class="controls">
+    <button id="toggle">Pause</button>
+    <label>Speed
+      <select id="speed"><option value="1">1x</option><option value="5" selected>5x</option><option value="20">20x</option></select>
+    </label>
+    <button id="reset">Reset</button>
+  </div>
+</header>
+<main>
+  <div class="summary" id="summary"></div>
+  <div class="grid" id="grid"></div>
+  <div class="panel"><h2>Alerts</h2><ul id="alerts"></ul>
+    <div class="note">Simulated machines: each step is one sensor reading. "Actual RUL" is shown only to compare with the model's estimate.</div>
+  </div>
+</main>
+<script>
+let running = true, timer = null;
+const $ = id => document.getElementById(id);
+
+function spark(canvas, series, color) {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, w, h);
+  const min = Math.min(...series), max = Math.max(...series), span = (max - min) || 1;
+  ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.beginPath();
+  series.forEach((v, i) => {
+    const x = i / (series.length - 1 || 1) * (w - 2) + 1, y = h - 3 - (v - min) / span * (h - 6);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.stroke();
+}
+
+function render(state) {
+  const counts = {Healthy:0, Warning:0, Critical:0, Failed:0};
+  state.machines.forEach(m => counts[m.status]++);
+  $("summary").innerHTML = `<span class="pill">Step ${state.clock}</span>` +
+    Object.entries(counts).map(([k, v]) => `<span class="pill">${k}: ${v}</span>`).join("");
+
+  const grid = $("grid");
+  if (grid.children.length !== state.machines.length) {
+    grid.innerHTML = state.machines.map(m => `
+      <div class="card" id="card-${m.id}">
+        <div class="row"><span class="name"></span><span class="badge"></span></div>
+        <div class="bar"><div></div></div>
+        <div class="meta"><span class="prob"></span><span class="rul"></span></div>
+        <div class="sensors"></div>
+        <canvas data-s="temperature"></canvas><canvas data-s="vibration"></canvas>
+        <div class="legend"><span style="color:#d6342c">Temperature</span><span style="color:#1f4e79">Vibration</span></div>
+      </div>`).join("");
+  }
+  state.machines.forEach(m => {
+    const c = $("card-" + m.id);
+    c.className = "card " + m.status;
+    c.querySelector(".name").textContent = m.name;
+    c.querySelector(".badge").textContent = m.status.toUpperCase();
+    c.querySelector(".bar > div").style.width = (m.probability * 100) + "%";
+    c.querySelector(".prob").textContent = `Failure risk: ${(m.probability * 100).toFixed(0)}%`;
+    c.querySelector(".rul").textContent = `Est. RUL ${m.estimated_rul} | actual ${m.actual_rul}`;
+    const L = m.latest;
+    c.querySelector(".sensors").innerHTML =
+      `<span>Temp<b>${L.temperature}</b></span><span>Vibration<b>${L.vibration}</b></span><span>Pressure<b>${L.pressure}</b></span>` +
+      `<span>Speed<b>${L.rotational_speed}</b></span><span>Torque<b>${L.torque}</b></span>`;
+    spark(c.querySelector('canvas[data-s="temperature"]'), m.spark.temperature, "#d6342c");
+    spark(c.querySelector('canvas[data-s="vibration"]'), m.spark.vibration, "#1f4e79");
+  });
+  $("alerts").innerHTML = state.alerts.length
+    ? state.alerts.map(a => `<li class="${a.level}"><span class="t">step ${a.t}</span>${a.message}</li>`).join("")
+    : "<li class='info'>No alerts yet.</li>";
+}
+
+async function tick() {
+  const r = await fetch(`/api/tick?steps=${$("speed").value}`, {method: "POST"});
+  render(await r.json());
+}
+function schedule() { clearInterval(timer); if (running) timer = setInterval(tick, 1000); }
+
+$("toggle").onclick = () => { running = !running; $("toggle").textContent = running ? "Pause" : "Resume"; schedule(); };
+$("reset").onclick = async () => { render(await (await fetch("/api/reset", {method: "POST"})).json()); };
+fetch("/api/state").then(r => r.json()).then(render).then(schedule);
+</script>
+</body>
+</html>
